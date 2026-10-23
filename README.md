@@ -4,7 +4,7 @@ Agent skills from MixTape Software. Each top-level directory is one self-contain
 
 | Skill | What it does |
 | --- | --- |
-| [botfight](botfight/SKILL.md) | Runs an unattended PR loop: a **fixer** that triages review-bot findings and a **reviewer** that posts inline findings for the fixer. |
+| [botfight](botfight/SKILL.md) | Runs an unattended PR loop: a **fixer** that triages review-bot findings and a **reviewer** that posts inline findings for the fixer, and a **formatter** that keeps bot output clear. |
 
 ## Installation
 
@@ -24,12 +24,13 @@ cp -r botfight <your-repo>/.claude/skills/
 
 Botfight keeps a pull request moving while you are away. It polls the PR on an interval, handles automated review feedback on its own, and leaves everything a human said for you to deal with.
 
-It has two modes:
+It has three modes:
 
 - **fixer** (default): addresses findings from review bots and CI on the current branch's PR. It fixes the important ones, declines the rest, and resolves the threads.
 - **reviewer**: watches a PR and posts one inline code review per new head commit, which a fixer loop can then triage.
+- **formatter**: keeps a plain-English PR note current and posts clearer restatements of hard-to-follow bot comments, without adding information.
 
-The two modes can run side by side in separate sessions: the reviewer finds issues, and the fixer addresses them.
+The modes can run side by side in separate sessions: the reviewer finds issues, the fixer addresses them, and the formatter keeps both readable.
 
 ## Requirements
 
@@ -43,9 +44,10 @@ The two modes can run side by side in separate sessions: the reviewer finds issu
 /botfight [fixer] [<interval> <duration>]
 /botfight reviewer [<PR-number-or-URL>] [<interval> <duration>] [<instructions>]
 /botfight reviewer [<PR-number-or-URL>] [<interval> <duration>] --skills <area>, <area>, ...
+/botfight formatter [<PR-number-or-URL>] [<interval> <duration>]
 ```
 
-Both modes check every **5 minutes** for **1.5 hours** unless told otherwise.
+All modes check every **5 minutes** for **1.5 hours** unless told otherwise.
 
 | Example | Meaning |
 | --- | --- |
@@ -55,6 +57,7 @@ Both modes check every **5 minutes** for **1.5 hours** unless told otherwise.
 | `/botfight reviewer 42 5m 1h focus on security and tenant isolation` | Review PR #42 with a custom brief. |
 | `/botfight reviewer 42 -- 10m is the cache TTL, check it` | Everything after `--` is treated as instructions. |
 | `/botfight reviewer 42 5m 1h --skills security, ui polish` | One separate review per area, each guided by the closest matching repository skill. |
+| `/botfight formatter 42` | Keep PR #42's note current and clarify its bot comments. |
 
 You can also trigger it in plain language, e.g. "run botfight", "fight the bots on this PR", or "botfight reviewer".
 
@@ -111,6 +114,17 @@ Reviewer watches an existing PR (it never creates one) and reviews **each new he
 
 Reviewer keeps watching until the deadline, cancellation, or PR close/merge. A clean review or green CI is a reason to keep waiting, not to stop.
 
+## Formatter mode
+
+Formatter watches an existing PR and does two things on each pass:
+
+- **PR note**: one formatter-owned top-level comment, edited in place, that states in plain technical English what the PR changes, which bot-raised issues are open, and which were addressed.
+- **Clarifications**: where a bot comment or review finding is hard to follow, a reply in its thread that restates the same issue more clearly, using a Mermaid diagram or ASCII sketch when that conveys it better than prose.
+
+**Fidelity is a hard requirement.** Formatter never adds facts, findings, fixes, or opinions, and keeps the source's hedges, scope, and severity. Each output comes with a claim map tying every sentence and diagram element to the source it restates; output with an unmapped claim is not posted.
+
+Formatter never edits other comments, the PR title, the description, or code, and never posts in human threads. The rewriting always runs in a dedicated sub-agent, so formatting work doesn't compete with the reasoning work of the fixer or reviewer. Fixer and reviewer treat formatter comments as restatements, not new findings.
+
 ## Attribution
 
 Every comment botfight posts ends with a footer, which is also how each mode recognizes the other's comments:
@@ -125,12 +139,18 @@ Every comment botfight posts ends with a footer, which is also how each mode rec
 🤖 botfight reviewer · <agent harness> (<model id>)
 ```
 
+```
+---
+🤖 botfight formatter · <agent harness> (<model id>)
+```
+
 Comments from your account without a footer are treated as yours (human).
 
 ## Files
 
 - [`botfight/SKILL.md`](botfight/SKILL.md): invocation, shared loop state, fixer mode, attribution.
 - [`botfight/references/reviewer.md`](botfight/references/reviewer.md): reviewer mode.
+- [`botfight/references/formatter.md`](botfight/references/formatter.md): formatter mode.
 
 ## License
 
